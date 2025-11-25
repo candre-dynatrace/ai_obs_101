@@ -1,9 +1,8 @@
-import ollama
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_community.document_loaders import BSHTMLLoader
 
-from langchain_ollama.chat_models import ChatOllama
-from langchain_ollama.embeddings import OllamaEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain.chains import create_retrieval_chain
@@ -11,6 +10,7 @@ from langchain_pinecone import PineconeVectorStore
 
 import logging
 import os
+from openai import OpenAI
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 import uvicorn
@@ -50,12 +50,12 @@ OTEL_ENDPOINT = read_endpoint()
 if OTEL_ENDPOINT.endswith("/v1/traces"):
     OTEL_ENDPOINT = OTEL_ENDPOINT[: OTEL_ENDPOINT.find("/v1/traces")]
 
-OLLAMA_ENDPOINT = os.environ.get("OLLAMA_ENDPOINT", "http://localhost:11434")
+OPENAI_KEY = os.environ.get("OPENAI_KEY")
 
 # GLOBALS
-AI_MODEL = os.environ.get("AI_MODEL", "orca-mini:3b")
-AI_SYSTEM = "llama"
-AI_EMBEDDING_MODEL = os.environ.get("AI_EMBEDDING_MODEL", "orca-mini:3b")
+AI_MODEL = os.environ.get("AI_MODEL", "gpt-3.5-turbo")
+AI_SYSTEM = "openai"
+AI_EMBEDDING_MODEL = os.environ.get("AI_EMBEDDING_MODEL", "text-embedding-ada-002")
 MAX_PROMPT_LENGTH = 50
 retrieval_chain = None
 
@@ -85,7 +85,7 @@ Traceloop.init(
 def prep_system():
 
     # Create the embedding
-    embeddings = OllamaEmbeddings(model=AI_EMBEDDING_MODEL, base_url=OLLAMA_ENDPOINT)
+    embeddings = OpenAIEmbeddings(model=AI_EMBEDDING_MODEL)
 
     # Retrieve the source data
     docs_list = []
@@ -106,7 +106,7 @@ def prep_system():
     retriever = vector.as_retriever()
 
     logger.info("Initialising Llama LLM...")
-    llm = ChatOllama(model=AI_MODEL, base_url=OLLAMA_ENDPOINT)
+    llm = ChatOpenAI()
 
     prompt = ChatPromptTemplate.from_template(
         """Answer the following question based only on the provided context:
@@ -132,6 +132,10 @@ def prep_system():
 
     return create_retrieval_chain(retriever, document_chain)
 
+#############
+# CONFIGURE 
+
+openai_client = OpenAI(api_key=OPENAI_KEY)
 
 ############
 # CONFIGURE ENDPOINTS
@@ -153,7 +157,7 @@ def submit_completion(framework: str, prompt: str):
 @task(name="ollama_chat")
 def llm_chat(prompt: str, span):
     prompt = f"Give travel advise in a paragraph of max 50 words about {prompt}"
-    res = ollama.generate(model=AI_MODEL, prompt=prompt)
+    res = openai_client.generate(model=AI_MODEL, prompt=prompt)
     return {"message": res.get("response")}
 
 

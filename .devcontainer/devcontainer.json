@@ -65,6 +65,9 @@
 		},
 		"PINECONE_API_KEY": {
 			"description": "PineCone API Token. Go to https://app.pinecone.io/"
+		},
+		"OPENAI_KEY": {
+			"description": "OpenAI API key. Provided by trainer if needed"
 		}
 	}
 }
